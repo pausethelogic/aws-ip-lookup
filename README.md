@@ -23,6 +23,11 @@ go build ./cmd/aws-ip-tool
 
 ## Usage
 
+Get detailed help:
+```bash
+aws-ip-tool help
+```
+
 Search by IP address:
 ```bash
 aws-ip-tool search -i 54.231.0.1

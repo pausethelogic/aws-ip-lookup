@@ -35,19 +35,47 @@ func main() {
 	var rootCmd = &cobra.Command{
 		Use:   "aws-ip-tool",
 		Short: "AWS IP ranges lookup tool",
-		Long: `A command-line tool to search and filter AWS IP ranges.
-Example: aws-ip-tool search -i 52.94.76.5 -s AMAZON -r us-east-1`,
+		Long: `AWS IP Tool - A command-line utility for searching AWS IP ranges
+
+This tool helps you find AWS IP ranges and determine if an IP address belongs
+to AWS infrastructure. It downloads and caches the official AWS IP ranges
+for quick lookups.
+
+Basic Commands:
+  search    Search for IP ranges using various filters
+  version   Show the current version
+
+Use "aws-ip-tool [command] --help" for more information about a command.`,
 	}
 
 	var searchCmd = &cobra.Command{
-		Use:   "search",
-		Short: "Search AWS IP ranges",
-		Long: `Search AWS IP ranges by IP address, service, and/or region.
-All filters are optional. If no filters are provided, all ranges will be displayed.`,
-		Example: `  aws-ip-tool search -i 52.94.76.5
-  aws-ip-tool search -s AMAZON
+		Use:          "search",
+		Short:        "Search AWS IP ranges",
+		SilenceUsage: true,
+		Long: `Search AWS IP ranges using various filters.
+
+You can search by:
+- IP address: Find which AWS service owns a specific IP
+- Service: List all IP ranges for a specific AWS service
+- Region: List all IP ranges in a specific AWS region
+
+The filters can be combined to narrow down the results.
+
+Examples:
+  # Search by IP address (shorthand flag)
+  aws-ip-tool search -i 54.231.0.1
+
+  # Search by IP address (long flag)
+  aws-ip-tool search --ip 54.231.0.1
+
+  # List all EC2 ranges
+  aws-ip-tool search -s EC2
+
+  # List all ranges in us-east-1
   aws-ip-tool search -r us-east-1
-  aws-ip-tool search -s AMAZON -r us-east-1`,
+
+  # Combine filters: EC2 ranges in us-east-1
+  aws-ip-tool search -s EC2 -r us-east-1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ip, _ := cmd.Flags().GetString("ip")
 			service, _ := cmd.Flags().GetString("service")
@@ -55,7 +83,7 @@ All filters are optional. If no filters are provided, all ranges will be display
 
 			if ip != "" {
 				if _, err := netip.ParseAddr(ip); err != nil {
-					return fmt.Errorf("invalid IP address: %s", ip)
+					return fmt.Errorf("invalid IP address: %s\nUse 'aws-ip-tool help' for usage examples", ip)
 				}
 			}
 
@@ -66,7 +94,17 @@ All filters are optional. If no filters are provided, all ranges will be display
 
 			filtered := filterRanges(ranges, ip, service, region)
 			if len(filtered) == 0 {
-				return fmt.Errorf("no matching IP ranges found")
+				message := "No matching IP ranges found"
+				if ip != "" {
+					message += fmt.Sprintf("\nIP %s does not belong to any AWS range", ip)
+				}
+				if service != "" {
+					message += fmt.Sprintf("\nService filter: %s", service)
+				}
+				if region != "" {
+					message += fmt.Sprintf("\nRegion filter: %s", region)
+				}
+				return fmt.Errorf("%s", message)
 			}
 
 			printResults(filtered)
@@ -75,16 +113,18 @@ All filters are optional. If no filters are provided, all ranges will be display
 	}
 
 	var versionCmd = &cobra.Command{
-		Use:   "version",
-		Short: "Print the version number",
+		Use:          "version",
+		Short:        "Print version",
+		SilenceUsage: true,
+		Long:         `Display the current version of aws-ip-tool.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("aws-ip-tool version %s\n", version)
 		},
 	}
 
-	searchCmd.Flags().StringP("ip", "i", "", "IP address to search")
-	searchCmd.Flags().StringP("service", "s", "", "AWS service to filter (e.g., AMAZON, EC2)")
-	searchCmd.Flags().StringP("region", "r", "", "AWS region to filter (e.g., us-east-1)")
+	searchCmd.Flags().StringP("ip", "i", "", "IP address to search (e.g., 54.231.0.1)")
+	searchCmd.Flags().StringP("service", "s", "", "AWS service name (e.g., AMAZON, EC2, S3, ROUTE53)")
+	searchCmd.Flags().StringP("region", "r", "", "AWS region code (e.g., us-east-1, eu-west-1)")
 
 	rootCmd.AddCommand(searchCmd, versionCmd)
 
