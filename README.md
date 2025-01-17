@@ -2,6 +2,8 @@
 
 A command-line tool for checking if a public IP address belongs to an AWS service.
 
+The tool downloads the latest AWS IP ranges from the official [AWS IP Address Ranges](https://ip-ranges.amazonaws.com/ip-ranges.json) page and caches them locally for faster lookups. The tool can search by IP address, AWS service, and AWS region.
+
 ## Features
 
 - Search AWS IP ranges by IP address
@@ -62,3 +64,10 @@ Service: AMAZON
 Region: us-east-1
 Network: us-east-1
 ```
+
+## How it works
+
+### Data flow: 
+
+User Input -> Cache Check -> AWS Download (if needed) -> Search based on user input -> Display result or error
+

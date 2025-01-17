@@ -156,16 +156,26 @@ func loadJSONFromCache() ([]byte, error) {
 }
 
 func downloadIPRanges() (*IPRanges, error) {
+	var cachedRanges IPRanges
 	if cached, err := loadJSONFromCache(); err == nil {
-		var ranges IPRanges
-		if err := json.Unmarshal(cached, &ranges); err == nil {
-			return &ranges, nil
+		if err := json.Unmarshal(cached, &cachedRanges); err == nil {
+			// Check if we need to update by comparing SyncToken
+			if upToDate, err := isCacheUpToDate(cachedRanges.SyncToken); err == nil && upToDate {
+				return &cachedRanges, nil
+			}
 		}
 	}
 
 	fmt.Println("Downloading latest IP ranges from AWS...")
 	resp, err := http.Get("https://ip-ranges.amazonaws.com/ip-ranges.json")
 	if err != nil {
+		// If download fails but we have cache, use the cache as fallback
+		if cached, err := loadJSONFromCache(); err == nil {
+			if err := json.Unmarshal(cached, &cachedRanges); err == nil {
+				fmt.Println("Warning: Using cached IP ranges file due to download failure")
+				return &cachedRanges, nil
+			}
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -184,6 +194,27 @@ func downloadIPRanges() (*IPRanges, error) {
 		return nil, err
 	}
 	return &ranges, nil
+}
+
+func isCacheUpToDate(cachedToken string) (bool, error) {
+	// Get just the syncToken from AWS to minimize data transfer
+	resp, err := http.Head("https://ip-ranges.amazonaws.com/ip-ranges.json")
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	// AWS includes the syncToken in the ETag header
+	etag := resp.Header.Get("ETag")
+	if etag == "" {
+		return false, fmt.Errorf("no ETag found in response")
+	}
+
+	// Remove quotes from ETag
+	etag = strings.Trim(etag, "\"")
+
+	// Compare with cached token
+	return etag == cachedToken, nil
 }
 
 func filterRanges(ranges *IPRanges, ip, service, region string) []IPRange {
@@ -229,7 +260,7 @@ func printResults(ranges []IPRange) {
 	yellow := color.New(color.FgYellow).SprintFunc()
 
 	fmt.Printf("Found %s matching ranges:\n\n", bold(len(ranges)))
-	
+
 	for _, r := range ranges {
 		fmt.Printf("%s %s\n", bold("IP Prefix:"), cyan(r.IPPrefix))
 		fmt.Printf("%s %s\n", bold("Service:"), green(r.Service))
