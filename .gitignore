@@ -25,3 +25,13 @@ go.work.sum
 .env
 
 aws-ip-tool
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
