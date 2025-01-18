@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,10 +10,12 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 )
 
 const version = "1.0.0"
@@ -43,8 +46,13 @@ for quick lookups.
 
 Available Commands:
   search    Search AWS IP ranges using various filters
+  services  List all available AWS services
+  regions   List all AWS regions
   version   Show tool version
   help      Show help for any command
+
+Common Flags:
+  -o, --output string   Output format (text, json, yaml, csv)
 
 Use "aws-ip-tool [command] --help" for more information about a command.`,
 	}
@@ -60,23 +68,24 @@ You can search by:
 - Service (-s, --service): List all IP ranges for a specific AWS service
 - Region (-r, --region): List all IP ranges in a specific AWS region
 
-The tool will:
-- Use cached IP ranges when available
-- Automatically download and cache new IP ranges when needed
-- Show colored output for better readability
+Output Formats Available:
+- text (default): Human-readable colored output
+- json: JSON formatted output
+- yaml: YAML formatted output
+- csv: CSV format with headers
 
 Examples:
-  # Search by IP address
+  # Search by IP address with default output
   aws-ip-tool search -i 54.231.0.1
 
-  # List all EC2 ranges
-  aws-ip-tool search -s EC2
+  # List all EC2 ranges in JSON format
+  aws-ip-tool search -s EC2 -o json
 
-  # List all ranges in us-east-1
-  aws-ip-tool search -r us-east-1
+  # List all ranges in us-east-1 as CSV
+  aws-ip-tool search -r us-east-1 -o csv
 
-  # Combine filters: EC2 ranges in us-east-1
-  aws-ip-tool search -s EC2 -r us-east-1`,
+  # Combine filters with YAML output
+  aws-ip-tool search -s EC2 -r us-east-1 -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Check if any args were provided without flags
 			if len(args) > 0 {
@@ -118,8 +127,8 @@ Examples:
 				return fmt.Errorf("%s", message)
 			}
 
-			printResults(filtered)
-			return nil
+			format, _ := cmd.Flags().GetString("output")
+			return outputResults(filtered, format)
 		},
 	}
 
@@ -133,11 +142,66 @@ Examples:
 		},
 	}
 
+	var servicesCmd = &cobra.Command{
+		Use:          "services",
+		Short:        "List all AWS services",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ranges, err := downloadIPRanges()
+			if err != nil {
+				return fmt.Errorf("failed to get IP ranges: %v", err)
+			}
+
+			services := make(map[string]bool)
+			for _, prefix := range ranges.Prefixes {
+				services[prefix.Service] = true
+			}
+
+			var uniqueServices []string
+			for service := range services {
+				uniqueServices = append(uniqueServices, service)
+			}
+			sort.Strings(uniqueServices)
+
+			format, _ := cmd.Flags().GetString("output")
+			return outputResults(uniqueServices, format)
+		},
+	}
+
+	var regionsCmd = &cobra.Command{
+		Use:          "regions",
+		Short:        "List all AWS regions",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ranges, err := downloadIPRanges()
+			if err != nil {
+				return fmt.Errorf("failed to get IP ranges: %v", err)
+			}
+
+			regions := make(map[string]bool)
+			for _, prefix := range ranges.Prefixes {
+				regions[prefix.Region] = true
+			}
+
+			var uniqueRegions []string
+			for region := range regions {
+				uniqueRegions = append(uniqueRegions, region)
+			}
+			sort.Strings(uniqueRegions)
+
+			format, _ := cmd.Flags().GetString("output")
+			return outputResults(uniqueRegions, format)
+		},
+	}
+
 	searchCmd.Flags().StringP("ip", "i", "", "IP address to search (e.g., 54.231.0.1)")
 	searchCmd.Flags().StringP("service", "s", "", "AWS service name (e.g., AMAZON, EC2, S3, ROUTE53)")
 	searchCmd.Flags().StringP("region", "r", "", "AWS region code (e.g., us-east-1, eu-west-1)")
+	searchCmd.Flags().StringP("output", "o", "text", "Output format (text, json, yaml, csv)")
+	servicesCmd.Flags().StringP("output", "o", "text", "Output format (text, json, yaml, csv)")
+	regionsCmd.Flags().StringP("output", "o", "text", "Output format (text, json, yaml, csv)")
 
-	rootCmd.AddCommand(searchCmd, versionCmd)
+	rootCmd.AddCommand(searchCmd, versionCmd, servicesCmd, regionsCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -278,4 +342,49 @@ func printResults(ranges []IPRange) {
 		fmt.Printf("%s %s\n", bold("Region:"), yellow(r.Region))
 		fmt.Printf("%s %s\n\n", bold("Network:"), r.Network)
 	}
+}
+
+func outputResults(data interface{}, format string) error {
+	switch format {
+	case "json":
+		output, err := json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(output))
+
+	case "yaml":
+		output, err := yaml.Marshal(data)
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(output))
+
+	case "csv":
+		w := csv.NewWriter(os.Stdout)
+		switch v := data.(type) {
+		case []IPRange:
+			w.Write([]string{"IP Prefix", "Service", "Region", "Network"})
+			for _, r := range v {
+				w.Write([]string{r.IPPrefix, r.Service, r.Region, r.Network})
+			}
+		case []string:
+			w.Write([]string{"Value"})
+			for _, s := range v {
+				w.Write([]string{s})
+			}
+		}
+		w.Flush()
+
+	default: // "text"
+		switch v := data.(type) {
+		case []IPRange:
+			printResults(v)
+		case []string:
+			for _, s := range v {
+				fmt.Println(s)
+			}
+		}
+	}
+	return nil
 }
