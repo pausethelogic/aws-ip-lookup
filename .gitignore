@@ -24,8 +24,6 @@ go.work.sum
 # env file
 .env
 
-aws-ip-tool
-
 # IDE
 .idea/
 .vscode/
