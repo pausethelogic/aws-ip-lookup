@@ -17,7 +17,13 @@ The tool downloads the latest AWS IP ranges from the official [AWS IP Address Ra
 
 ## Installation
 
-Preequisites:
+### Pre-built binaries
+
+Download the latest release for your platform from the [releases page](https://github.com/pausethelogic/aws-ip-tool/releases).
+
+### From Source
+
+Prerequisites:
 - Go 1.23 or later 
 - Add Go bin directory to your PATH environment variable by adding the following line to your shell profile file (e.g., ~/.bashrc, ~/.zshrc): `export PATH=$PATH:$(go env GOPATH)/bin`
 
