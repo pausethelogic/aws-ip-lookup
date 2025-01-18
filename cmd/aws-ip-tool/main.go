@@ -41,9 +41,10 @@ This tool helps you find AWS IP ranges and determine if an IP address belongs
 to AWS infrastructure. It downloads and caches the official AWS IP ranges
 for quick lookups.
 
-Basic Commands:
-  search    Search for IP ranges using various filters
-  version   Show the current version
+Available Commands:
+  search    Search AWS IP ranges using various filters
+  version   Show tool version
+  help      Show help for any command
 
 Use "aws-ip-tool [command] --help" for more information about a command.`,
 	}
@@ -55,18 +56,18 @@ Use "aws-ip-tool [command] --help" for more information about a command.`,
 		Long: `Search AWS IP ranges using various filters.
 
 You can search by:
-- IP address: Find which AWS service owns a specific IP
-- Service: List all IP ranges for a specific AWS service
-- Region: List all IP ranges in a specific AWS region
+- IP address (-i, --ip): Find which AWS service owns a specific IP
+- Service (-s, --service): List all IP ranges for a specific AWS service
+- Region (-r, --region): List all IP ranges in a specific AWS region
 
-The filters can be combined to narrow down the results.
+The tool will:
+- Use cached IP ranges when available
+- Automatically download and cache new IP ranges when needed
+- Show colored output for better readability
 
 Examples:
-  # Search by IP address (shorthand flag)
+  # Search by IP address
   aws-ip-tool search -i 54.231.0.1
-
-  # Search by IP address (long flag)
-  aws-ip-tool search --ip 54.231.0.1
 
   # List all EC2 ranges
   aws-ip-tool search -s EC2
@@ -77,9 +78,19 @@ Examples:
   # Combine filters: EC2 ranges in us-east-1
   aws-ip-tool search -s EC2 -r us-east-1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Check if any args were provided without flags
+			if len(args) > 0 {
+				return fmt.Errorf("unexpected argument(s): %v\nUse flags to specify search criteria, see 'aws-ip-tool search --help'", args)
+			}
+
 			ip, _ := cmd.Flags().GetString("ip")
 			service, _ := cmd.Flags().GetString("service")
 			region, _ := cmd.Flags().GetString("region")
+
+			// Check if at least one flag was provided
+			if ip == "" && service == "" && region == "" {
+				return fmt.Errorf("at least one search flag is required\nUse 'aws-ip-tool search --help' for usage examples")
+			}
 
 			if ip != "" {
 				if _, err := netip.ParseAddr(ip); err != nil {
