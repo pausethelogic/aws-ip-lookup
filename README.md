@@ -1,8 +1,8 @@
-# aws-ip-tool
+# aws-ip-lookup
 
-A command-line tool for checking if a public IP address belongs to an AWS service.
+A command-line tool for checking if a public IP address belongs to AWS.
 
-The tool downloads the latest AWS IP ranges from the official [AWS IP Address Ranges](https://ip-ranges.amazonaws.com/ip-ranges.json) page and caches them locally for faster lookups. The tool can search by any combination of IP address, AWS service, and AWS region.
+The tool downloads the latest AWS IP ranges from the official [AWS IP Address Ranges](https://ip-ranges.amazonaws.com/ip-ranges.json) file and caches them locally for faster lookups. The tool can search by any combination of IP address, AWS service, and AWS region.
 
 ## Features
 
@@ -23,11 +23,11 @@ Preequisites:
 
 ```bash
 # Clone the repository
-git clone https://github.com/pausethelogic/aws-ip-tool.git
+git clone https://github.com/pausethelogic/aws-ip-lookup.git
 
 # Build the tool
-cd aws-ip-tool
-go build ./cmd/aws-ip-tool
+cd aws-ip-lookup
+go build ./cmd/aws-ip-lookup
 ```
 
 ## Usage
@@ -36,36 +36,36 @@ go build ./cmd/aws-ip-tool
 
 Get detailed help:
 ```bash
-aws-ip-tool help
+aws-ip-lookup help
 ```
 
 List all AWS services:
 ```bash
-aws-ip-tool services
-aws-ip-tool services -o json
+aws-ip-lookup services
+aws-ip-lookup services -o json
 ```
 
 List all AWS regions:
 ```bash
-aws-ip-tool regions
-aws-ip-tool regions -o yaml
+aws-ip-lookup regions
+aws-ip-lookup regions -o yaml
 ```
 
 ### Search Commands
 
 Search by IP address:
 ```bash
-aws-ip-tool search -i 54.231.0.1
+aws-ip-lookup search -i 54.231.0.1
 ```
 
 Filter by service:
 ```bash
-aws-ip-tool search -s AMAZON
+aws-ip-lookup search -s AMAZON
 ```
 
 Filter by region:
 ```bash
-aws-ip-tool search -r us-east-1
+aws-ip-lookup search -r us-east-1
 ```
 
 ### Output Formats
@@ -74,22 +74,22 @@ All commands support different output formats using the -o or --output flag:
 
 Text output (default):
 ```bash
-aws-ip-tool search -i 54.231.0.1
+aws-ip-lookup search -i 54.231.0.1
 ```
 
 JSON output:
 ```bash
-aws-ip-tool search -i 54.231.0.1 -o json
+aws-ip-lookup search -i 54.231.0.1 -o json
 ```
 
 YAML output:
 ```bash
-aws-ip-tool search -s EC2 -o yaml
+aws-ip-lookup search -s EC2 -o yaml
 ```
 
 CSV output:
 ```bash
-aws-ip-tool search -r us-east-1 -o csv
+aws-ip-lookup search -r us-east-1 -o csv
 ```
 
 ### Example Outputs
@@ -123,8 +123,12 @@ IP Prefix,Service,Region,Network
 ## Cache Management
 
 The tool automatically:
-- Maintains a local cache in ~/.aws-ip-tool/
+- Maintains a local cache in ~/.aws-ip-lookup/
 - Checks for updates using AWS's SyncToken
 - Downloads new IP ranges only when needed
 - Falls back to cache when offline
 
+## TODO
+
+- Add support for checking if an IP address belongs to a specific AWS account
+- Add support for checking if an IP address belongs to a specific resource you own (e.g., EC2 instance, NAT Gateway, ALB, etc)

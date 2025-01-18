@@ -36,9 +36,9 @@ type IPRanges struct {
 
 func main() {
 	var rootCmd = &cobra.Command{
-		Use:   "aws-ip-tool",
+		Use:   "aws-ip-lookup",
 		Short: "AWS IP ranges lookup tool",
-		Long: `AWS IP Tool - A command-line utility for searching AWS IP ranges
+		Long: `AWS IP Lookup - A command-line utility for searching AWS IP ranges
 
 This tool helps you find AWS IP ranges and determine if an IP address belongs
 to AWS infrastructure. It downloads and caches the official AWS IP ranges
@@ -54,7 +54,7 @@ Available Commands:
 Common Flags:
   -o, --output string   Output format (text, json, yaml, csv)
 
-Use "aws-ip-tool [command] --help" for more information about a command.`,
+Use "aws-ip-lookup [command] --help" for more information about a command.`,
 	}
 
 	var searchCmd = &cobra.Command{
@@ -76,20 +76,20 @@ Output Formats Available:
 
 Examples:
   # Search by IP address with default output
-  aws-ip-tool search -i 54.231.0.1
+  aws-ip-lookup search -i 54.231.0.1
 
   # List all EC2 ranges in JSON format
-  aws-ip-tool search -s EC2 -o json
+  aws-ip-lookup search -s EC2 -o json
 
   # List all ranges in us-east-1 as CSV
-  aws-ip-tool search -r us-east-1 -o csv
+  aws-ip-lookup search -r us-east-1 -o csv
 
   # Combine filters with YAML output
-  aws-ip-tool search -s EC2 -r us-east-1 -o yaml`,
+  aws-ip-lookup search -s EC2 -r us-east-1 -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Check if any args were provided without flags
 			if len(args) > 0 {
-				return fmt.Errorf("unexpected argument(s): %v\nUse flags to specify search criteria, see 'aws-ip-tool search --help'", args)
+				return fmt.Errorf("unexpected argument(s): %v\nUse flags to specify search criteria, see 'aws-ip-lookup search --help'", args)
 			}
 
 			ip, _ := cmd.Flags().GetString("ip")
@@ -98,12 +98,12 @@ Examples:
 
 			// Check if at least one flag was provided
 			if ip == "" && service == "" && region == "" {
-				return fmt.Errorf("at least one search flag is required\nUse 'aws-ip-tool search --help' for usage examples")
+				return fmt.Errorf("at least one search flag is required\nUse 'aws-ip-lookup search --help' for usage examples")
 			}
 
 			if ip != "" {
 				if _, err := netip.ParseAddr(ip); err != nil {
-					return fmt.Errorf("invalid IP address: %s\nUse 'aws-ip-tool help' for usage examples", ip)
+					return fmt.Errorf("invalid IP address: %s\nUse 'aws-ip-lookup help' for usage examples", ip)
 				}
 			}
 
@@ -136,9 +136,9 @@ Examples:
 		Use:          "version",
 		Short:        "Print version",
 		SilenceUsage: true,
-		Long:         `Display the current version of aws-ip-tool.`,
+		Long:         `Display the current version of aws-ip-lookup.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("aws-ip-tool version %s\n", version)
+			fmt.Printf("aws-ip-lookup version %s\n", version)
 		},
 	}
 
@@ -213,7 +213,7 @@ func getConfigDir() string {
 	if err != nil {
 		return ""
 	}
-	configDir := filepath.Join(homeDir, ".aws-ip-tool")
+	configDir := filepath.Join(homeDir, ".aws-ip-lookup")
 	os.MkdirAll(configDir, 0755)
 	return configDir
 }
