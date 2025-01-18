@@ -132,3 +132,4 @@ The tool automatically:
 
 - Add support for checking if an IP address belongs to a specific AWS account
 - Add support for checking if an IP address belongs to a specific resource you own (e.g., EC2 instance, NAT Gateway, ALB, etc)
+- Add IPv6 lookup support
