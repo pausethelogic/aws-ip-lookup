@@ -7,8 +7,9 @@ The tool downloads the latest AWS IP ranges from the official [AWS IP Address Ra
 ## Features
 
 - Search AWS IP ranges by IP address
-- Filter by AWS service (e.g., AMAZON, EC2)
+- Filter by AWS service (e.g., CLOUDFRONT, EC2)
 - Filter by AWS region (e.g., us-east-1)
+- Filter by network border group (e.g., us-east-1-msp-1a)
 - List all available AWS services in the IP ranges file
 - List all AWS regions in the IP ranges file
 - Multiple output formats (text, JSON, YAML, CSV)
@@ -51,6 +52,12 @@ aws-ip-lookup regions
 aws-ip-lookup regions -o yaml
 ```
 
+List all network border groups:
+```bash
+aws-ip-lookup network-border-groups
+aws-ip-lookup network-border-groups -o json
+```
+
 ### Search Commands
 
 Search by IP address:
@@ -66,6 +73,16 @@ aws-ip-lookup search -s AMAZON
 Filter by region:
 ```bash
 aws-ip-lookup search -r us-east-1
+```
+
+Filter by network border group:
+```bash
+aws-ip-lookup search -n us-east-1
+```
+
+Combined search:
+```bash
+aws-ip-lookup search -s EC2 -r us-east-1 --network-border-group us-east-1
 ```
 
 ### Output Formats
@@ -101,23 +118,23 @@ Found 1 matching ranges:
 IP Prefix: 54.231.0.0/17
 Service: AMAZON
 Region: us-east-1
-Network: us-east-1
+Network Border Group: us-east-1
 ```
 
 JSON format:
 ```json
 {
-  "IPPrefix": "54.231.0.0/17",
-  "Service": "AMAZON",
-  "Region": "us-east-1",
-  "Network": "us-east-1"
+  "IPPrefix": "70.132.0.0/18",
+  "Service": "CLOUDFRONT",
+  "Region": "GLOBAL",
+  "Network Border Group": "GLOBAL"
 }
 ```
 
 CSV format:
 ```csv
-IP Prefix,Service,Region,Network
-54.231.0.0/17,AMAZON,us-east-1,us-east-1
+IP Prefix,IPv6 Prefix,Service,Region,Network Border Group
+54.231.0.0/17,,AMAZON,us-east-1,us-east-1
 ```
 
 ## Cache Management
@@ -132,4 +149,3 @@ The tool automatically:
 
 - Add support for checking if an IP address belongs to a specific AWS account
 - Add support for checking if an IP address belongs to a specific resource you own (e.g., EC2 instance, NAT Gateway, ALB, etc)
-- Add IPv6 lookup support
