@@ -21,10 +21,11 @@ import (
 const version = "1.0.0"
 
 type IPRange struct {
-	IPPrefix string `json:"ip_prefix,omitempty"`
-	Region   string `json:"region"`
-	Service  string `json:"service"`
-	Network  string `json:"network_border_group"`
+	IPPrefix  string `json:"ip_prefix,omitempty"`
+	IPv6Prefix string `json:"ipv6_prefix,omitempty"`
+	Region    string `json:"region"`
+	Service   string `json:"service"`
+	Network   string `json:"network_border_group"`
 }
 
 type IPRanges struct {
@@ -45,11 +46,12 @@ to AWS infrastructure. It downloads and caches the official AWS IP ranges
 for quick lookups.
 
 Available Commands:
-  search    Search AWS IP ranges using various filters
-  services  List all available AWS services
-  regions   List all AWS regions
-  version   Show tool version
-  help      Show help for any command
+  search                  Search AWS IP ranges using various filters
+  services                List all available AWS services
+  regions                 List all AWS regions
+  network-border-groups   List all network border groups
+  version                Show tool version
+  help                   Show help for any command
 
 Common Flags:
   -o, --output string   Output format (text, json, yaml, csv)
@@ -64,9 +66,10 @@ Use "aws-ip-lookup [command] --help" for more information about a command.`,
 		Long: `Search AWS IP ranges using various filters.
 
 You can search by:
-- IP address (-i, --ip): Find which AWS service owns a specific IP
+- IP address or CIDR (-i, --ip): Find which AWS service owns a specific IP or overlaps with CIDR range
 - Service (-s, --service): List all IP ranges for a specific AWS service
 - Region (-r, --region): List all IP ranges in a specific AWS region
+- Network Border Group (-n, --network-border-group): List all IP ranges in a specific network border group
 
 Output Formats Available:
 - text (default): Human-readable colored output
@@ -78,14 +81,20 @@ Examples:
   # Search by IP address with default output
   aws-ip-lookup search -i 54.231.0.1
 
+  # Search by CIDR range
+  aws-ip-lookup search -i 54.231.0.0/24
+
   # List all EC2 ranges in JSON format
   aws-ip-lookup search -s EC2 -o json
 
   # List all ranges in us-east-1 as CSV
   aws-ip-lookup search -r us-east-1 -o csv
 
+  # List all ranges in a specific network border group
+  aws-ip-lookup search -n us-east-1
+
   # Combine filters with YAML output
-  aws-ip-lookup search -s EC2 -r us-east-1 -o yaml`,
+  aws-ip-lookup search -s EC2 -r us-east-1 -n us-east-1 -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Check if any args were provided without flags
 			if len(args) > 0 {
@@ -95,14 +104,19 @@ Examples:
 			ip, _ := cmd.Flags().GetString("ip")
 			service, _ := cmd.Flags().GetString("service")
 			region, _ := cmd.Flags().GetString("region")
+			network, _ := cmd.Flags().GetString("network-border-group")
 
 			// Check if at least one flag was provided
-			if ip == "" && service == "" && region == "" {
+			if ip == "" && service == "" && region == "" && network == "" {
 				return fmt.Errorf("at least one search flag is required\nUse 'aws-ip-lookup search --help' for usage examples")
 			}
 
 			if ip != "" {
-				if _, err := netip.ParseAddr(ip); err != nil {
+				if strings.Contains(ip, "/") {
+					if _, err := netip.ParsePrefix(ip); err != nil {
+						return fmt.Errorf("invalid CIDR range: %s\nUse 'aws-ip-lookup help' for usage examples", ip)
+					}
+				} else if _, err := netip.ParseAddr(ip); err != nil {
 					return fmt.Errorf("invalid IP address: %s\nUse 'aws-ip-lookup help' for usage examples", ip)
 				}
 			}
@@ -112,7 +126,7 @@ Examples:
 				return fmt.Errorf("failed to get IP ranges: %v", err)
 			}
 
-			filtered := filterRanges(ranges, ip, service, region)
+			filtered := filterRanges(ranges, ip, service, region, network)
 			if len(filtered) == 0 {
 				message := "No matching IP ranges found"
 				if ip != "" {
@@ -123,6 +137,9 @@ Examples:
 				}
 				if region != "" {
 					message += fmt.Sprintf("\nRegion filter: %s", region)
+				}
+				if network != "" {
+					message += fmt.Sprintf("\nNetwork filter: %s", network)
 				}
 				return fmt.Errorf("%s", message)
 			}
@@ -194,14 +211,43 @@ Examples:
 		},
 	}
 
-	searchCmd.Flags().StringP("ip", "i", "", "IP address to search (e.g., 54.231.0.1)")
+	var networkBorderGroupsCmd = &cobra.Command{
+		Use:          "network-border-groups",
+		Short:        "List all AWS network border groups",
+		SilenceUsage: true,
+		Long:         `List all available AWS network border groups from the IP ranges file.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ranges, err := downloadIPRanges()
+			if err != nil {
+				return fmt.Errorf("failed to get IP ranges: %v", err)
+			}
+
+			networks := make(map[string]bool)
+			for _, prefix := range ranges.Prefixes {
+				networks[prefix.Network] = true
+			}
+
+			var uniqueNetworks []string
+			for network := range networks {
+				uniqueNetworks = append(uniqueNetworks, network)
+			}
+			sort.Strings(uniqueNetworks)
+
+			format, _ := cmd.Flags().GetString("output")
+			return outputResults(uniqueNetworks, format)
+		},
+	}
+
+	searchCmd.Flags().StringP("ip", "i", "", "IP address or CIDR range to search (e.g., 54.231.0.1 or 54.231.0.0/24)")
 	searchCmd.Flags().StringP("service", "s", "", "AWS service name (e.g., AMAZON, EC2, S3, ROUTE53)")
 	searchCmd.Flags().StringP("region", "r", "", "AWS region code (e.g., us-east-1, eu-west-1)")
+	searchCmd.Flags().StringP("network-border-group", "n", "", "Network border group (e.g., us-east-1, us-west-2)")
 	searchCmd.Flags().StringP("output", "o", "text", "Output format (text, json, yaml, csv)")
 	servicesCmd.Flags().StringP("output", "o", "text", "Output format (text, json, yaml, csv)")
 	regionsCmd.Flags().StringP("output", "o", "text", "Output format (text, json, yaml, csv)")
+	networkBorderGroupsCmd.Flags().StringP("output", "o", "text", "Output format (text, json, yaml, csv)")
 
-	rootCmd.AddCommand(searchCmd, versionCmd, servicesCmd, regionsCmd)
+	rootCmd.AddCommand(searchCmd, versionCmd, servicesCmd, regionsCmd, networkBorderGroupsCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -292,11 +338,20 @@ func isCacheUpToDate(cachedToken string) (bool, error) {
 	return etag == cachedToken, nil
 }
 
-func filterRanges(ranges *IPRanges, ip, service, region string) []IPRange {
+func filterRanges(ranges *IPRanges, ip, service, region, network string) []IPRange {
 	var results []IPRange
 
+	// Process IPv4 ranges
 	for _, prefix := range ranges.Prefixes {
-		if !matchesFilters(prefix, ip, service, region) {
+		if !matchesFilters(prefix, ip, service, region, network) {
+			continue
+		}
+		results = append(results, prefix)
+	}
+
+	// Process IPv6 ranges
+	for _, prefix := range ranges.IPv6Prefixes {
+		if !matchesFilters(prefix, ip, service, region, network) {
 			continue
 		}
 		results = append(results, prefix)
@@ -305,25 +360,56 @@ func filterRanges(ranges *IPRanges, ip, service, region string) []IPRange {
 	return results
 }
 
-func matchesFilters(r IPRange, ip, service, region string) bool {
+func matchesFilters(r IPRange, ip, service, region, network string) bool {
 	if service != "" && !strings.EqualFold(r.Service, service) {
 		return false
 	}
 	if region != "" && !strings.EqualFold(r.Region, region) {
 		return false
 	}
+	if network != "" && !strings.EqualFold(r.Network, network) {
+		return false
+	}
 	if ip != "" {
-		searchIP, err := netip.ParseAddr(ip)
-		if err != nil {
-			return false
+		var searchPrefix netip.Prefix
+		if strings.Contains(ip, "/") {
+			// Handle CIDR range
+			var err error
+			searchPrefix, err = netip.ParsePrefix(ip)
+			if err != nil {
+				return false
+			}
+		} else {
+			// Handle single IP
+			searchIP, err := netip.ParseAddr(ip)
+			if err != nil {
+				return false
+			}
+			searchPrefix = netip.PrefixFrom(searchIP, searchIP.BitLen())
 		}
-		prefix, err := netip.ParsePrefix(r.IPPrefix)
-		if err != nil {
-			return false
+		
+		// Check IPv4 prefix
+		if r.IPPrefix != "" {
+			prefix, err := netip.ParsePrefix(r.IPPrefix)
+			if err != nil {
+				return false
+			}
+			if prefix.Overlaps(searchPrefix) {
+				return true
+			}
 		}
-		if !prefix.Contains(searchIP) {
-			return false
+		
+		// Check IPv6 prefix
+		if r.IPv6Prefix != "" {
+			prefix, err := netip.ParsePrefix(r.IPv6Prefix)
+			if err != nil {
+				return false
+			}
+			if prefix.Overlaps(searchPrefix) {
+				return true
+			}
 		}
+		return false
 	}
 	return true
 }
@@ -337,10 +423,15 @@ func printResults(ranges []IPRange) {
 	fmt.Printf("Found %s matching ranges:\n\n", bold(len(ranges)))
 
 	for _, r := range ranges {
-		fmt.Printf("%s %s\n", bold("IP Prefix:"), cyan(r.IPPrefix))
+		if r.IPPrefix != "" {
+			fmt.Printf("%s %s\n", bold("IP Prefix:"), cyan(r.IPPrefix))
+		}
+		if r.IPv6Prefix != "" {
+			fmt.Printf("%s %s\n", bold("IPv6 Prefix:"), cyan(r.IPv6Prefix))
+		}
 		fmt.Printf("%s %s\n", bold("Service:"), green(r.Service))
 		fmt.Printf("%s %s\n", bold("Region:"), yellow(r.Region))
-		fmt.Printf("%s %s\n\n", bold("Network:"), r.Network)
+		fmt.Printf("%s %s\n\n", bold("Network Border Group:"), r.Network)
 	}
 }
 
@@ -364,9 +455,9 @@ func outputResults(data interface{}, format string) error {
 		w := csv.NewWriter(os.Stdout)
 		switch v := data.(type) {
 		case []IPRange:
-			w.Write([]string{"IP Prefix", "Service", "Region", "Network"})
+			w.Write([]string{"IP Prefix", "IPv6 Prefix", "Service", "Region", "Network Border Group"})
 			for _, r := range v {
-				w.Write([]string{r.IPPrefix, r.Service, r.Region, r.Network})
+				w.Write([]string{r.IPPrefix, r.IPv6Prefix, r.Service, r.Region, r.Network})
 			}
 		case []string:
 			w.Write([]string{"Value"})
