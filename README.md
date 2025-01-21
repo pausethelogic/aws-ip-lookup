@@ -1,6 +1,6 @@
 # aws-ip-lookup
 
-A command-line tool for checking if a public IP address belongs to AWS.
+A CLI tool for querying AWS public IP ranges by region, service, or IP.
 
 The tool downloads the latest AWS IP ranges from the official [AWS IP Address Ranges](https://ip-ranges.amazonaws.com/ip-ranges.json) file and caches them locally for faster lookups. The tool can search by any combination of IP address, AWS service, and AWS region.
 
