@@ -1,3 +1,5 @@
+version: 2
+
 before:
   hooks:
     - go mod tidy
@@ -12,6 +14,28 @@ builds:
     goarch:
       - amd64
       - arm64
+
+archives:
+  - format: tar.gz
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        format: zip
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
 
 release:
   # Useful if you want to delay the creation of the tag in the remote.
@@ -49,5 +73,10 @@ release:
   header: |
     ## ({{ .Version }}) ({{ .Date }})
 
+  footer: >-
+
+     ---
+
+     Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
   # Upload metadata.json and artifacts.json to the release as well.
   include_meta: true
