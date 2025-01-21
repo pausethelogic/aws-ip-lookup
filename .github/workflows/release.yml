@@ -29,12 +29,15 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: stable
+      
+      - run: go mod tidy
+      - run: go mod vet
 
       - name: Run GoSec Security Scanning
         uses: securego/gosec@master
         with:
           args: ./...
-
+          
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:

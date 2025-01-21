@@ -7,14 +7,14 @@ The tool downloads the latest AWS IP ranges from the official [AWS IP Address Ra
 ## Features
 
 - Search AWS IP ranges by IP address
-- Filter by AWS service (e.g., CLOUDFRONT, EC2)
+- Filter by AWS service (e.g., ROUTE53, CLOUDFRONT, EC2)
 - Filter by AWS region (e.g., us-east-1)
 - Filter by network border group (e.g., us-east-1-msp-1a)
 - List all available AWS services in the IP ranges file
 - List all AWS regions in the IP ranges file
 - Multiple output formats (text, JSON, YAML, CSV)
 - Local caching of IP ranges for faster lookups
-- Colored output for better readability
+- Colorful output for better readability
 
 ## Installation
 

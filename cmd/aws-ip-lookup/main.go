@@ -260,7 +260,7 @@ func getConfigDir() (string, error) {
 		return "", fmt.Errorf("failed to get user home directory: %v", err)
 	}
 	configDir := filepath.Join(homeDir, ".aws-ip-lookup")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create config directory: %v", err)
 	}
 	return configDir, nil
@@ -279,7 +279,7 @@ func saveJSONToCache(data []byte) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write cache file: %v", err)
 	}
 	return nil
@@ -290,7 +290,7 @@ func loadJSONFromCache() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return os.ReadFile(path)
+	return readCacheFile(path)
 }
 
 func downloadIPRanges() (*IPRanges, error) {
@@ -510,4 +510,27 @@ func outputResults(data interface{}, format string) error {
 		}
 	}
 	return nil
+}
+
+func isPathSafe(path string) bool {
+	configDir, err := getConfigDir()
+	if err != nil {
+		return false
+	}
+	
+	// Clean and normalize paths
+	cleanPath := filepath.Clean(path)
+	cleanConfigDir := filepath.Clean(configDir)
+	
+	// Check if path is within config directory
+	return strings.HasPrefix(cleanPath, cleanConfigDir)
+}
+
+func readCacheFile(path string) ([]byte, error) {
+	if !isPathSafe(path) {
+		return nil, fmt.Errorf("invalid file path: potential directory traversal")
+	}
+	
+	cleanPath := filepath.Clean(path)
+	return os.ReadFile(cleanPath)
 }
