@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 jobs:
-  goreleaser:
+  golang-pr:
     runs-on: ubuntu-latest
     env:
         working-directory: ./cmd/aws-ip-lookup
