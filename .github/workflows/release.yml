@@ -30,12 +30,14 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: stable
+          go-version: 1.23
      
       - name: Go prep
         working-directory: ${{ env.working-directory }}
-        run: go vet
-             go mod tidy && go mod vendor
+        run: |
+            go vet
+            go mod tidy
+            go mod vendor
 
       - name: Run GoSec Security Scanning
         uses: securego/gosec@master
