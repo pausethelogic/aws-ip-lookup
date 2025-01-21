@@ -50,17 +50,32 @@ jobs:
             latest_tag=$(git describe --tags --abbrev=0)
             echo "Latest tag is $latest_tag"
             echo "GORELEASER_PREVIOUS_TAG=$latest_tag" >> $GITHUB_ENV
-     
+        
+        
       - name: Set new tag from .version file
         id: set_tag
         run: |
-            #Get tag from .version file
-            new_tag=$(echo $(cat .version))
-            echo "New tag is $new_tag"
-            #Create new tag in repo and push it
+            # Check if .version exists
+            if [ ! -f .version ]; then
+                echo "Error: .version file not found"
+                exit 1
+            fi
+            
+            # Read new version
+            new_tag=$(cat .version)
+            echo "New tag would be $new_tag"
+            
+            # Check if tag exists
+            if git rev-parse "$new_tag" >/dev/null 2>&1; then
+                echo "Error: Tag $new_tag already exists"
+                exit 1
+            fi
+            
+            # Create new tag
             git tag $new_tag
             git push origin $new_tag
-            #Set new tag in environment variable for goreleaser to use
+            
+            echo "Created new tag $new_tag"
             echo "GORELEASER_CURRENT_TAG=$new_tag" >> $GITHUB_ENV
    
       - name: Run GoReleaser
