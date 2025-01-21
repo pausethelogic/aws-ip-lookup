@@ -54,8 +54,13 @@ jobs:
       - name: Set new tag from .version file
         id: set_tag
         run: |
+            #Get tag from .version file
             new_tag=$(echo $(cat .version))
             echo "New tag is $new_tag"
+            #Create new tag in repo and push it
+            git tag $new_tag
+            git push origin $new_tag
+            #Set new tag in environment variable for goreleaser to use
             echo "GORELEASER_CURRENT_TAG=$new_tag" >> $GITHUB_ENV
    
       - name: Run GoReleaser
