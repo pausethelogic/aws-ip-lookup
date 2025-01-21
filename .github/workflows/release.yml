@@ -19,6 +19,8 @@ permissions:
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    env:
+        working-directory: ./cmd/aws-ip-lookup
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,8 +32,10 @@ jobs:
         with:
           go-version: stable
      
-      - run: go vet
-      - run: go mod tidy && go mod vendor
+      - name: Go prep
+        working-directory: ${{ env.working-directory }}
+        run: go vet
+             go mod tidy && go mod vendor
 
       - name: Run GoSec Security Scanning
         uses: securego/gosec@master
