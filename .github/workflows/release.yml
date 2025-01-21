@@ -29,9 +29,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: stable
-      
-      - run: go mod tidy
-      - run: go mod vet
+     
+      - run: go vet
+      - run: go mod tidy && go mod vendor
 
       - name: Run GoSec Security Scanning
         uses: securego/gosec@master
