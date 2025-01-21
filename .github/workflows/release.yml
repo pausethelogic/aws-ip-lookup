@@ -50,6 +50,13 @@ jobs:
             latest_tag=$(git describe --tags --abbrev=0)
             echo "Latest tag is $latest_tag"
             echo "GORELEASER_PREVIOUS_TAG=$latest_tag" >> $GITHUB_ENV
+     
+      - name: Set new tag from .version file
+        id: set_tag
+        run: |
+            new_tag=$(echo $(cat .version))
+            echo "New tag is $new_tag"
+            echo "GORELEASER_CURRENT_TAG=$new_tag" >> $GITHUB_ENV
    
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
