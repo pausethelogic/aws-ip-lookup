@@ -1,0 +1,53 @@
+before:
+  hooks:
+    - go mod tidy
+
+project_name: aws-ip-lookup
+builds:
+  - env: [CGO_ENABLED=0]
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+release:
+  # Useful if you want to delay the creation of the tag in the remote.
+  # You can create the tag locally, but not push it, and run GoReleaser.
+  # It'll then set the `target_commitish` portion of the GitHub release to the
+  # value of this field.
+  # Only works on GitHub.
+  #
+  # Default: ''.
+  # Templates: allowed.
+  target_commitish: "{{ .Commit }}"
+
+  # If set to auto, will mark the release as not ready for production
+  # in case there is an indicator for this in the tag e.g. v1.0.0-rc1
+  # If set to true, will mark the release as not ready for production.
+  # Default: false.
+  prerelease: auto
+  
+  make_latest: true
+
+  # What to do with the release notes in case there the release already exists.
+  #
+  # Valid options are:
+  # - `keep-existing`: keep the existing notes
+  # - `append`: append the current release notes to the existing notes
+  # - `prepend`: prepend the current release notes to the existing notes
+  # - `replace`: replace existing notes
+  #
+  # Default: `keep-existing`.
+  mode: append
+
+  # Header for the release body.
+  #
+  # Templates: allowed.
+  header: |
+    ## ({{ .Version }}) ({{ .Date }})
+
+  # Upload metadata.json and artifacts.json to the release as well.
+  include_meta: true

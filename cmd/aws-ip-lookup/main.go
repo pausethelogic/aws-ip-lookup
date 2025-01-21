@@ -21,11 +21,11 @@ import (
 const version = "1.0.0"
 
 type IPRange struct {
-	IPPrefix  string `json:"ip_prefix,omitempty"`
+	IPPrefix   string `json:"ip_prefix,omitempty"`
 	IPv6Prefix string `json:"ipv6_prefix,omitempty"`
-	Region    string `json:"region"`
-	Service   string `json:"service"`
-	Network   string `json:"network_border_group"`
+	Region     string `json:"region"`
+	Service    string `json:"service"`
+	Network    string `json:"network_border_group"`
 }
 
 type IPRanges struct {
@@ -387,7 +387,7 @@ func matchesFilters(r IPRange, ip, service, region, network string) bool {
 			}
 			searchPrefix = netip.PrefixFrom(searchIP, searchIP.BitLen())
 		}
-		
+
 		// Check IPv4 prefix
 		if r.IPPrefix != "" {
 			prefix, err := netip.ParsePrefix(r.IPPrefix)
@@ -398,7 +398,7 @@ func matchesFilters(r IPRange, ip, service, region, network string) bool {
 				return true
 			}
 		}
-		
+
 		// Check IPv6 prefix
 		if r.IPv6Prefix != "" {
 			prefix, err := netip.ParsePrefix(r.IPv6Prefix)
