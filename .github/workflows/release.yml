@@ -1,0 +1,88 @@
+# .github/workflows/release.yml
+name: goreleaser
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main 
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  # packages: write
+  # issues: write
+  # id-token: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    env:
+        working-directory: ./cmd/aws-ip-lookup
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+     
+      - name: Go prep
+        working-directory: ${{ env.working-directory }}
+        run: |
+            go vet
+            go mod tidy
+            go mod vendor
+
+      - name: Run GoSec Security Scanning
+        uses: securego/gosec@master
+        with:
+          args: ./...
+          
+      - name: Get latest tag
+        id: get_tag
+        run: |
+            latest_tag=$(git describe --tags --abbrev=0)
+            echo "Latest tag is $latest_tag"
+            echo "GORELEASER_PREVIOUS_TAG=$latest_tag" >> $GITHUB_ENV
+        
+        
+      - name: Set new tag from .version file
+        id: set_tag
+        run: |
+            # Check if .version exists
+            if [ ! -f .version ]; then
+                echo "Error: .version file not found"
+                exit 1
+            fi
+            
+            # Read new version
+            new_tag=$(cat .version)
+            echo "New tag would be $new_tag"
+            
+            # Check if tag exists
+            if git rev-parse "$new_tag" >/dev/null 2>&1; then
+                echo "Error: Tag $new_tag already exists"
+                exit 1
+            fi
+            
+            # Create new tag
+            git tag $new_tag
+            git push origin $new_tag
+            
+            echo "Created new tag $new_tag"
+            echo "GORELEASER_CURRENT_TAG=$new_tag" >> $GITHUB_ENV
+   
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

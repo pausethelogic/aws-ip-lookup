@@ -21,11 +21,11 @@ import (
 const version = "1.0.0"
 
 type IPRange struct {
-	IPPrefix  string `json:"ip_prefix,omitempty"`
+	IPPrefix   string `json:"ip_prefix,omitempty"`
 	IPv6Prefix string `json:"ipv6_prefix,omitempty"`
-	Region    string `json:"region"`
-	Service   string `json:"service"`
-	Network   string `json:"network_border_group"`
+	Region     string `json:"region"`
+	Service    string `json:"service"`
+	Network    string `json:"network_border_group"`
 }
 
 type IPRanges struct {
@@ -254,26 +254,43 @@ Examples:
 	}
 }
 
-func getConfigDir() string {
+func getConfigDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("failed to get user home directory: %v", err)
 	}
 	configDir := filepath.Join(homeDir, ".aws-ip-lookup")
-	os.MkdirAll(configDir, 0755)
-	return configDir
+	if err := os.MkdirAll(configDir, 0750); err != nil {
+		return "", fmt.Errorf("failed to create config directory: %v", err)
+	}
+	return configDir, nil
 }
 
-func getCacheFilePath() string {
-	return filepath.Join(getConfigDir(), "ip-ranges.json")
+func getCacheFilePath() (string, error) {
+	configDir, err := getConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configDir, "ip-ranges.json"), nil
 }
 
 func saveJSONToCache(data []byte) error {
-	return os.WriteFile(getCacheFilePath(), data, 0644)
+	path, err := getCacheFilePath()
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		return fmt.Errorf("failed to write cache file: %v", err)
+	}
+	return nil
 }
 
 func loadJSONFromCache() ([]byte, error) {
-	return os.ReadFile(getCacheFilePath())
+	path, err := getCacheFilePath()
+	if err != nil {
+		return nil, err
+	}
+	return readCacheFile(path)
 }
 
 func downloadIPRanges() (*IPRanges, error) {
@@ -301,9 +318,13 @@ func downloadIPRanges() (*IPRanges, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected HTTP status: %s", resp.Status)
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 
 	if err := saveJSONToCache(body); err != nil {
@@ -312,7 +333,7 @@ func downloadIPRanges() (*IPRanges, error) {
 
 	var ranges IPRanges
 	if err := json.Unmarshal(body, &ranges); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse JSON: %v", err)
 	}
 	return &ranges, nil
 }
@@ -387,7 +408,7 @@ func matchesFilters(r IPRange, ip, service, region, network string) bool {
 			}
 			searchPrefix = netip.PrefixFrom(searchIP, searchIP.BitLen())
 		}
-		
+
 		// Check IPv4 prefix
 		if r.IPPrefix != "" {
 			prefix, err := netip.ParsePrefix(r.IPPrefix)
@@ -398,7 +419,7 @@ func matchesFilters(r IPRange, ip, service, region, network string) bool {
 				return true
 			}
 		}
-		
+
 		// Check IPv6 prefix
 		if r.IPv6Prefix != "" {
 			prefix, err := netip.ParsePrefix(r.IPv6Prefix)
@@ -440,14 +461,14 @@ func outputResults(data interface{}, format string) error {
 	case "json":
 		output, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to marshal JSON: %v", err)
 		}
 		fmt.Println(string(output))
 
 	case "yaml":
 		output, err := yaml.Marshal(data)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to marshal YAML: %v", err)
 		}
 		fmt.Println(string(output))
 
@@ -455,17 +476,28 @@ func outputResults(data interface{}, format string) error {
 		w := csv.NewWriter(os.Stdout)
 		switch v := data.(type) {
 		case []IPRange:
-			w.Write([]string{"IP Prefix", "IPv6 Prefix", "Service", "Region", "Network Border Group"})
+			if err := w.Write([]string{"IP Prefix", "IPv6 Prefix", "Service", "Region", "Network Border Group"}); err != nil {
+				return fmt.Errorf("failed to write CSV header: %v", err)
+			}
 			for _, r := range v {
-				w.Write([]string{r.IPPrefix, r.IPv6Prefix, r.Service, r.Region, r.Network})
+				if err := w.Write([]string{r.IPPrefix, r.IPv6Prefix, r.Service, r.Region, r.Network}); err != nil {
+					return fmt.Errorf("failed to write CSV record: %v", err)
+				}
 			}
 		case []string:
-			w.Write([]string{"Value"})
+			if err := w.Write([]string{"Value"}); err != nil {
+				return fmt.Errorf("failed to write CSV header: %v", err)
+			}
 			for _, s := range v {
-				w.Write([]string{s})
+				if err := w.Write([]string{s}); err != nil {
+					return fmt.Errorf("failed to write CSV record: %v", err)
+				}
 			}
 		}
 		w.Flush()
+		if err := w.Error(); err != nil {
+			return fmt.Errorf("CSV writer error: %v", err)
+		}
 
 	default: // "text"
 		switch v := data.(type) {
@@ -478,4 +510,27 @@ func outputResults(data interface{}, format string) error {
 		}
 	}
 	return nil
+}
+
+func isPathSafe(path string) bool {
+	configDir, err := getConfigDir()
+	if err != nil {
+		return false
+	}
+	
+	// Clean and normalize paths
+	cleanPath := filepath.Clean(path)
+	cleanConfigDir := filepath.Clean(configDir)
+	
+	// Check if path is within config directory
+	return strings.HasPrefix(cleanPath, cleanConfigDir)
+}
+
+func readCacheFile(path string) ([]byte, error) {
+	if !isPathSafe(path) {
+		return nil, fmt.Errorf("invalid file path: potential directory traversal")
+	}
+	
+	cleanPath := filepath.Clean(path)
+	return os.ReadFile(cleanPath)
 }

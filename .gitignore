@@ -33,3 +33,5 @@ go.work.sum
 # OS
 .DS_Store
 Thumbs.db
+# Added by goreleaser init:
+dist/
