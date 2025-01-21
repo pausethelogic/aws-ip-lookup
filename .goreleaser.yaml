@@ -6,7 +6,10 @@ before:
 
 project_name: aws-ip-lookup
 builds:
-  - env: [CGO_ENABLED=0]
+
+  - id: "aws-ip-lookup"
+    main: ./cmd/aws-ip-lookup
+    env: [CGO_ENABLED=0]
     goos:
       - linux
       - windows
@@ -14,6 +17,9 @@ builds:
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
 
 archives:
   - format: tar.gz
