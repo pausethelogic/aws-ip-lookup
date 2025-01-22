@@ -18,6 +18,21 @@ The tool downloads the latest AWS IP ranges from the official [AWS IP Address Ra
 
 ## Installation
 
+### Prebuilt Binaries
+Prebuilt binaries are available for Linux, macOS, and Windows on the [Releases](github.com/pausethelogic/aws-ip-lookup/releases) page.
+
+Binary versions are based on the latest release tag, which is defined in the .version file at the root of the repository.
+
+Once you've downloaded the binary, run it on macOS and Linux with the following command:
+```bash
+./aws-ip-lookup
+```
+On Windows, double click the binary, or run the binary with the following command:
+```bash
+aws-ip-lookup.exe
+```
+### Build from Source
+
 Preequisites:
 - Go 1.23 or later 
 - Add Go bin directory to your PATH environment variable by adding the following line to your shell profile file (e.g., ~/.bashrc, ~/.zshrc): `export PATH=$PATH:$(go env GOPATH)/bin`
